@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iSchool Learning Management System</title>
+    <link rel="icon" href="download.png">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --secondary: #64748b;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --dark: #0f172a;
+            --light: #f1f5f9;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+        body {
+            background: var(--light);
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        .navbar {
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 1rem 0;
+        }
+        .navbar-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+        .login-form, .register-form {
+            max-width: 400px;
+            margin: 100px auto;
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--secondary);
+            border-radius: 4px;
+        }
+        .error-message {
+            color: var(--danger);
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            background: var(--primary);
+            color: white;
+            transition: all 0.2s;
+            margin-top: 1rem;
+        }
+        .btn:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div id="loginView" class="login-form">
+        <h2>Login to iSchool LMS</h2>
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="loginEmail">
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="loginPassword">
+        </div>
+        <div class="error-message" id="loginError"></div>
+        <button class="btn" onclick="performLogin()">Login</button>
+        <button class="btn" onclick="showRegister()">Register</button>
+    </div>
+
+    <div id="mainView" style="display: none;">
+        <nav class="navbar">
+            <div class="container navbar-content">
+                <div class="logo">iSchool LMS</div>
+                <div class="user-menu">
+                    <span id="userEmail"></span>
+                    <button class="btn" onclick="logout()">Logout</button>
+                </div>
+            </div>
+        </nav>
+        <div class="container">
+            <h2>Welcome to the Dashboard</h2>
+            <div id="activities"></div>
+        </div>
+    </div>
+
+    <div id="registerView" class="register-form" style="display: none;">
+        <h2>Register for iSchool LMS</h2>
+        <div class="form-group">
+            <label>Full Name</label>
+            <input type="text" id="registerFullName">
+        </div>
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="registerEmail">
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="registerPassword">
+        </div>
+        <div class="error-message" id="registerError"></div>
+        <button class="btn" onclick="performRegistration()">Register</button>
+        <button class="btn" onclick="showLogin()">Back to Login</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        let db = {
+            users: [],
+            currentUser: null,
+            activities: []
+        };
+
+        function loadData() {
+            const savedData = localStorage.getItem('ischoolData');
+            if (savedData) {
+                db = JSON.parse(savedData);
+            }
+            if (!db.currentUser) {
+                showLoginView();
+            } else {
+                showMainView();
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem('ischoolData', JSON.stringify(db));
+        }
+
+        function showLoginView() {
+            document.getElementById('loginView').style.display = 'block';
+            document.getElementById('mainView').style.display = 'none';
+            document.getElementById('registerView').style.display = 'none';
+        }
+
+        function showMainView() {
+            document.getElementById('loginView').style.display = 'none';
+            document.getElementById('mainView').style.display = 'block';
+            document.getElementById('userEmail').textContent = db.currentUser.email;
+            updateActivities();
+        }
+
+        function showRegister() {
+            document.getElementById('registerView').style.display = 'block';
+            document.getElementById('loginView').style.display = 'none';
+        }
+
+        function showLogin() {
+            document.getElementById('registerView').style.display = 'none';
+            document.getElementById('loginView').style.display = 'block';
+        }
+
+        function performLogin() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const errorElement = document.getElementById('loginError');
+
+            if (!email || !password) {
+                errorElement.textContent = 'Please enter email and password.';
+                return;
+            }
+
+            axios.post('/api.php', {
+                action: 'login',
+                email: email,
+                password: password
+            })
+            .then(response => {
+                if (response.data.success) {
+                    db.currentUser = response.data.user;
+                    saveData();
+                    showMainView();
+                } else {
+                    errorElement.textContent = response.data.message;
+                }
+            })
+            .catch(error => {
+                errorElement.textContent = 'An error occurred. Please try again.';
+            });
+        }
+
+        function performRegistration() {
+            const fullName = document.getElementById('registerFullName').value;
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const errorElement = document.getElementById('registerError');
+
+            if (!fullName || !email || !password) {
+                errorElement.textContent = 'Please fill in all fields.';
+                return;
+            }
+
+            axios.post('/api.php', {
+                action: 'register',
+                fullName: fullName,
+                email: email,
+                password: password
+            })
+            .then(response => {
+                if (response.data.success) {
+                    alert('Registration successful! Please login.');
+                    showLogin();
+                } else {
+                    errorElement.textContent = response.data.message;
+                }
+            })
+            .catch(error => {
+                errorElement.textContent = 'An error occurred. Please try again.';
+            });
+        }
+
+        function logout() {
+            db.currentUser = null;
+            saveData();
+            showLoginView();
+        }
+
+        function updateActivities() {
+            const activitiesDiv = document.getElementById('activities');
+            activitiesDiv.innerHTML = db.activities.map(activity => `
+                <div>${activity}</div>
+            `).join('');
+        }
+
+        loadData();
+    </script>
+</body>
+</html>
